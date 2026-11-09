@@ -8,10 +8,8 @@ import sys
 import requests
 
 def upload_to_telegram(pdf_path, bot_token=None, chat_id=None, custom_caption=None):
-    if not bot_token:
-        bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    if not chat_id:
-        chat_id = os.getenv("TELEGRAM_CHAT_ID", "@sscstudyprephub").strip()
+    bot_token = (bot_token or "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = (chat_id or "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip() or "@sscstudyprephub"
 
     if not bot_token:
         print("[!] TELEGRAM_BOT_TOKEN is not set.")

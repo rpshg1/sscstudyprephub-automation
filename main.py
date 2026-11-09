@@ -50,7 +50,7 @@ def run_daily_automation():
     # 3. Upload to Telegram
     print("\n[Step 3/3] Uploading PDF to Telegram Channel @sscstudyprephub...")
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "@sscstudyprephub").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip() or "@sscstudyprephub"
 
     if not bot_token:
         print("\n" + "!" * 60)
@@ -69,6 +69,7 @@ def run_daily_automation():
     else:
         print(f"\n[WARNING] Telegram upload failed: {result}")
         print("Check your TELEGRAM_BOT_TOKEN and make sure the bot is an admin in @sscstudyprephub.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     run_daily_automation()
