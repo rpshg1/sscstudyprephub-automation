@@ -45,14 +45,9 @@ An automated daily pipeline that fetches fresh Current Affairs (India, States, W
 
 To make this run daily without touching your laptop or GitHub:
 
-1. Create a new repository on [GitHub](https://github.com/new) (e.g. `sscstudyprephub-automation`), private or public.
-2. In this project folder (`C:\Users\rupes\.gemini\antigravity\scratch\sscstudyprephub_automation`), initialize git and push:
+1. Create a new repository named **`sscstudyprephub-automation`** on [GitHub](https://github.com/new) (can be Private or Public).
+2. Push your committed code from this folder:
    ```bash
-   git init
-   git add .
-   git commit -m "feat: daily current affairs automation with invisible youtube redirect"
-   git branch -M main
-   git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/sscstudyprephub-automation.git
    git push -u origin main
    ```
 3. Add your Telegram Bot Token to GitHub Secrets:
