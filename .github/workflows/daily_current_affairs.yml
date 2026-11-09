@@ -1,0 +1,43 @@
+name: Daily Current Affairs Automation
+
+on:
+  schedule:
+    # Runs daily at 08:00 AM IST (02:30 UTC) completely hands-free
+    - cron: '30 2 * * *'
+  # Allows manual 1-click test run anytime from GitHub Actions tab or phone
+  workflow_dispatch:
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Daily Current Affairs Pipeline
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python main.py
+
+      - name: Upload PDF Artifact (Backup archive in GitHub)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-current-affairs-pdf
+          path: SSC_Current_Affairs_*.pdf
+          retention-days: 7
