@@ -2,10 +2,13 @@ name: Daily Current Affairs Automation
 
 on:
   schedule:
-    # Runs daily at 08:00 AM IST (02:30 UTC) completely hands-free
-    - cron: '30 2 * * *'
-  # Allows manual 1-click test run anytime from GitHub Actions tab or phone
+    # Off-peak UTC minute (02:03 UTC = 07:33 AM IST) to avoid :00/:30 queue delays and land before/around 8:00 AM IST
+    - cron: '3 2 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: daily-current-affairs-post
+  cancel-in-progress: false
 
 jobs:
   run-automation:
@@ -21,18 +24,30 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Dependencies
+      - name: Install Hindi Fonts & Ensure Chromium
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-devanagari fonts-noto-core
+          if ! command -v google-chrome &> /dev/null && ! command -v chromium-browser &> /dev/null && ! command -v chromium &> /dev/null; then
+            sudo apt-get install -y -qq chromium-browser
+          fi
+
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Daily Current Affairs Pipeline
+      - name: Run Daily Bilingual Current Affairs Pipeline
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID != '' && secrets.TELEGRAM_CHAT_ID || '@sscstudyprephub' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
-          python main.py
+          python -u main.py
 
       - name: Upload PDF Artifact (Backup archive in GitHub)
         uses: actions/upload-artifact@v4
