@@ -8,12 +8,15 @@ Comprehensive Bilingual (English + Hindi) Daily Current Affairs Fetcher
 
 import os
 import re
+import io
 import json
 import html
+import base64
 import datetime
 import feedparser
 import requests
 from bs4 import BeautifulSoup
+from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
 
 HEADERS = {
@@ -135,9 +138,45 @@ def translate_en_to_hi(text, email="rupesh907.rg@gmail.com"):
     return " ".join(translated_parts).strip()
 
 
-def extract_article_body(url, fallback_summary=""):
+def is_valid_news_image_url(url):
+    if not url or not url.startswith("http"):
+        return False
+    low = url.lower()
+    skip_words = ("logo", "favicon", "icon", "placeholder", "default", "blank", "avatar", "sprite", "1x1", "spacer")
+    return not any(w in low for w in skip_words)
+
+
+def download_and_compress_image(img_url):
+    if not is_valid_news_image_url(img_url):
+        return ""
+    try:
+        r = requests.get(img_url, headers=HEADERS, timeout=6)
+        if r.status_code != 200 or not r.content:
+            return ""
+        img = Image.open(io.BytesIO(r.content))
+        w, h = img.size
+        if w < 180 or h < 100:
+            return ""
+        if img.mode in ("RGBA", "P", "LA"):
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            bg.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+            img = bg
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+        img.thumbnail((360, 220), Image.Resampling.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=74, optimize=True)
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:image/jpeg;base64,{b64}"
+    except Exception:
+        return ""
+
+
+def extract_article_body_and_image(url, fallback_summary="", rss_img_url=""):
     if not url:
-        return fallback_summary
+        return fallback_summary, download_and_compress_image(rss_img_url)
 
     boilerplate_phrases = (
         "subscribe", "sign up", "read more", "also read", "copyright",
@@ -147,16 +186,31 @@ def extract_article_body(url, fallback_summary=""):
     )
 
     extracted = ""
+    img_url = rss_img_url
     try:
         r = requests.get(url, headers=HEADERS, timeout=6)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, "html.parser")
+
+            # Try OpenGraph / Twitter image first for crisp relevant article photo
+            og = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "twitter:image"})
+            if og and og.get("content") and is_valid_news_image_url(og["content"]):
+                img_url = og["content"].strip()
+
             for sc in soup.find_all("script", type="application/ld+json"):
                 try:
                     data = json.loads(sc.string or "{}")
                     if isinstance(data, list):
                         data = data[0]
                     if isinstance(data, dict):
+                        if not is_valid_news_image_url(img_url):
+                            ld_img = data.get("image")
+                            if isinstance(ld_img, dict):
+                                ld_img = ld_img.get("url", "")
+                            elif isinstance(ld_img, list) and ld_img:
+                                ld_img = ld_img[0].get("url", "") if isinstance(ld_img[0], dict) else ld_img[0]
+                            if isinstance(ld_img, str) and is_valid_news_image_url(ld_img):
+                                img_url = ld_img
                         body = data.get("articleBody", "")
                         if body and len(body) > 120:
                             extracted = clean_text(body)
@@ -212,10 +266,9 @@ def extract_article_body(url, fallback_summary=""):
         if len(selected) >= 4 or total_len >= 540:
             break
 
-    if not selected:
-        return fallback_summary or text_to_use[:450]
-
-    return " ".join(selected)
+    final_detail = " ".join(selected) if selected else (fallback_summary or text_to_use[:450])
+    image_uri = download_and_compress_image(img_url)
+    return final_detail, image_uri
 
 
 def derive_exam_pointer(title, detail, category):
@@ -266,9 +319,12 @@ def enrich_single_item(raw_item):
     title = raw_item["title_en"]
     link = raw_item["link"]
     raw_summary = raw_item["raw_summary"]
+    rss_img_url = raw_item.get("rss_img_url", "")
     cat = raw_item["category"]
 
-    detail_en = extract_article_body(link, fallback_summary=raw_summary)
+    detail_en, image_uri = extract_article_body_and_image(
+        link, fallback_summary=raw_summary, rss_img_url=rss_img_url
+    )
     if not detail_en or len(detail_en) < 40:
         detail_en = raw_summary or title
 
@@ -284,7 +340,18 @@ def enrich_single_item(raw_item):
         "gk_en": gk_en,
         "gk_hi": gk_hi,
         "source": raw_item["source"],
+        "image_uri": image_uri,
     }
+
+
+def extract_rss_image(entry):
+    for key in ("media_content", "media_thumbnail"):
+        items = entry.get(key) or []
+        if items and isinstance(items, list):
+            u = items[0].get("url", "")
+            if is_valid_news_image_url(u):
+                return u
+    return ""
 
 
 def collect_raw_entries(feed_urls, category, seen_titles, limit=3):
@@ -313,6 +380,7 @@ def collect_raw_entries(feed_urls, category, seen_titles, limit=3):
                     "title_en": title,
                     "raw_summary": raw_summary,
                     "link": entry.get("link", ""),
+                    "rss_img_url": extract_rss_image(entry),
                     "category": category,
                     "source": src,
                 })
@@ -403,13 +471,16 @@ def fetch_native_hindi_pib_highlight(limit=3):
                 seen_hi.add(title_hi[:45])
                 link = e.get("link", "")
                 raw_sum = clean_text(e.get("summary", ""))
-                detail_hi = extract_article_body(link, fallback_summary=raw_sum)
+                detail_hi, image_uri = extract_article_body_and_image(
+                    link, fallback_summary=raw_sum, rss_img_url=extract_rss_image(e)
+                )
                 if not detail_hi or len(detail_hi) < 35:
                     detail_hi = title_hi
                 hindi_items.append({
                     "title_hi": title_hi,
                     "detail_hi": detail_hi,
                     "source": src_name,
+                    "image_uri": image_uri,
                 })
                 added_from_src += 1
         except Exception:

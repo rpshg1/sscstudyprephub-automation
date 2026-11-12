@@ -47,26 +47,30 @@ def already_posted_today_ist():
         }
         url = f"https://api.github.com/repos/{gh_repo}/actions/runs?status=completed&per_page=15"
         res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code == 200:
-            runs = res.json().get("workflow_runs", [])
-            for r in runs:
-                if str(r.get("id")) == current_run_id:
-                    continue
-                if r.get("conclusion") != "success":
-                    continue
-                created_utc_str = r.get("created_at", "")
-                if not created_utc_str:
-                    continue
-                dt_utc = datetime.datetime.strptime(created_utc_str, "%Y-%m-%dT%H:%M:%SZ").replace(
-                    tzinfo=datetime.timezone.utc
+        if res.status_code != 200:
+            print(f"[WARN] Deduplication API returned status {res.status_code}: {res.text[:150]}", flush=True)
+            return False
+
+        runs = res.json().get("workflow_runs", [])
+        for r in runs:
+            if str(r.get("id")) == current_run_id:
+                continue
+            if r.get("conclusion") != "success":
+                continue
+            created_utc_str = r.get("created_at", "")
+            if not created_utc_str:
+                continue
+            dt_utc = datetime.datetime.strptime(created_utc_str, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=datetime.timezone.utc
+            )
+            dt_ist = dt_utc + datetime.timedelta(hours=5, minutes=30)
+            if dt_ist.strftime("%Y-%m-%d") == ist_today_str:
+                print(
+                    f"[DEDUP] Run #{r.get('run_number')} ({r.get('id')}) already completed successfully "
+                    f"today at {dt_ist.strftime('%H:%M IST')}. Skipping duplicate scheduled run.",
+                    flush=True,
                 )
-                dt_ist = dt_utc + datetime.timedelta(hours=5, minutes=30)
-                if dt_ist.strftime("%Y-%m-%d") == ist_today_str:
-                    print(
-                        f"[DEDUP] Run #{r.get('run_number')} ({r.get('id')}) already completed successfully "
-                        f"today at {dt_ist.strftime('%H:%M IST')}. Skipping duplicate scheduled run."
-                    )
-                    return True
+                return True
     except Exception as e:
         print(f"[WARN] Deduplication check failed (continuing normally): {e}")
 

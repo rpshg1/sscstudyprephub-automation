@@ -10,6 +10,10 @@ concurrency:
   group: daily-current-affairs-post
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   run-automation:
     runs-on: ubuntu-latest

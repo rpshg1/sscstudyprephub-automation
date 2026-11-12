@@ -116,6 +116,8 @@ def build_html(data, logo_path):
             gk_en = esc(it.get("gk_en", ""))
             gk_hi = esc(it.get("gk_hi", ""))
             src = esc(it.get("source", ""))
+            img_uri = it.get("image_uri", "")
+            thumb_html = f'<img src="{img_uri}" class="news-thumb" alt="News Image">' if img_uri else ""
 
             cards_html.append(f"""
             <div class="news-card" style="border-left: 3.5px solid {accent_hex};">
@@ -127,7 +129,10 @@ def build_html(data, logo_path):
                     </div>
                     {f'<span class="src-tag">{src}</span>' if src else ''}
                 </div>
-                <div class="detail-en">{d_en}</div>
+                <div class="card-body-row">
+                    <div class="detail-en">{d_en}</div>
+                    {thumb_html}
+                </div>
                 <div class="detail-hi-box">
                     <span class="lang-badge">हिंदी विश्लेषण</span> {d_hi}
                 </div>
@@ -155,6 +160,8 @@ def build_html(data, logo_path):
     if hindi_special:
         hi_cards = []
         for idx, h_it in enumerate(hindi_special, 1):
+            h_img_uri = h_it.get("image_uri", "")
+            h_thumb_html = f'<img src="{h_img_uri}" class="news-thumb" alt="News Image">' if h_img_uri else ""
             hi_cards.append(f"""
             <div class="news-card" style="border-left: 3.5px solid #9a3412;">
                 <div class="card-top">
@@ -164,7 +171,10 @@ def build_html(data, logo_path):
                     </div>
                     <span class="src-tag">{esc(h_it.get('source'))}</span>
                 </div>
-                <div class="detail-hi-box" style="margin-top:6px;">{esc(h_it.get('detail_hi'))}</div>
+                <div class="card-body-row" style="margin-top:6px;">
+                    <div class="detail-hi-box" style="flex:1; margin-bottom:0;">{esc(h_it.get('detail_hi'))}</div>
+                    {h_thumb_html}
+                </div>
             </div>
             """)
         sections_html.append(f"""
@@ -433,12 +443,27 @@ def build_html(data, logo_path):
     border-radius: 4px;
     white-space: nowrap;
   }}
+  .card-body-row {{
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }}
+  .news-thumb {{
+    width: 148px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    flex-shrink: 0;
+    background: #f1f5f9;
+  }}
   .detail-en {{
+    flex: 1;
     font-size: 8.6pt;
     color: #334155;
     line-height: 1.48;
     text-align: justify;
-    margin-bottom: 6px;
   }}
   .detail-hi-box {{
     font-size: 8.6pt;
