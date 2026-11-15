@@ -24,12 +24,13 @@ def get_ist_now():
 
 def already_posted_today_ist():
     """
-    When triggered automatically via GitHub Actions `schedule`, check if another run
-    already succeeded earlier today (IST) so we never post duplicate PDFs in the same day.
-    Manual `workflow_dispatch` triggers bypass this guard unless deduplication is desired.
+    Checks if a successful run already completed earlier today (IST).
+    Prevents duplicate PDF uploads even if multiple crons or webhooks fire.
+    Can be overridden by setting FORCE_RUN=true.
     """
-    event_name = os.getenv("GITHUB_EVENT_NAME", "").strip()
-    if event_name != "schedule":
+    force_run = os.getenv("FORCE_RUN", "false").strip().lower()
+    if force_run in ("true", "1", "yes"):
+        print("[DEDUP] Force run requested. Bypassing daily deduplication check.", flush=True)
         return False
 
     gh_token = os.getenv("GITHUB_TOKEN", "").strip()
@@ -67,7 +68,7 @@ def already_posted_today_ist():
             if dt_ist.strftime("%Y-%m-%d") == ist_today_str:
                 print(
                     f"[DEDUP] Run #{r.get('run_number')} ({r.get('id')}) already completed successfully "
-                    f"today at {dt_ist.strftime('%H:%M IST')}. Skipping duplicate scheduled run.",
+                    f"today at {dt_ist.strftime('%H:%M IST')}. Skipping duplicate run.",
                     flush=True,
                 )
                 return True

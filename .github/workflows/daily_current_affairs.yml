@@ -2,9 +2,21 @@ name: Daily Current Affairs Automation
 
 on:
   schedule:
-    # Off-peak UTC minute (02:03 UTC = 07:33 AM IST) to avoid :00/:30 queue delays and land before/around 8:00 AM IST
-    - cron: '3 2 * * *'
+    # Staggered cron retry windows in Indian Standard Time (UTC + 5:30)
+    # Allows GitHub Actions multiple opportunities to trigger around morning delivery window
+    - cron: '45 1 * * *'  # 07:15 AM IST
+    - cron: '0 2 * * *'   # 07:30 AM IST
+    - cron: '15 2 * * *'  # 07:45 AM IST
+    - cron: '30 2 * * *'  # 08:00 AM IST
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force run even if already posted today'
+        required: false
+        default: 'false'
+        type: boolean
+  repository_dispatch:
+    types: [daily_trigger]
 
 concurrency:
   group: daily-current-affairs-post
@@ -48,6 +60,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          FORCE_RUN: ${{ inputs.force || 'false' }}
         run: |
           python -u main.py
 
