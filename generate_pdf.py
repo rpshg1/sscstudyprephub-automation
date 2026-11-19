@@ -622,7 +622,13 @@ def stamp_full_page_invisible_link(raw_pdf_path, final_pdf_path, url=YOUTUBE_URL
     return len(writer.pages)
 
 
-def generate_pdf(current_affairs_data, output_pdf_path, logo_image_path):
+def generate_pdf(current_affairs_data, output_pdf_path, logo_image_path=None):
+    if not logo_image_path:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        cand = os.path.join(base_dir, "logo.jpg")
+        if os.path.exists(cand):
+            logo_image_path = cand
+
     browser = find_browser_executable()
     html_content = build_html(current_affairs_data, logo_image_path)
 

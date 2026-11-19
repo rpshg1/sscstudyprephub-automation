@@ -94,13 +94,18 @@ def clean_text(raw):
     return txt
 
 
-def translate_chunk(chunk, email="rupesh907.rg@gmail.com"):
+def translate_chunk(chunk, email=None):
     if not chunk:
         return ""
+    if email is None:
+        email = os.getenv("TRANSLATOR_EMAIL", "").strip()
+    params = {"q": chunk, "langpair": "en|hi"}
+    if email:
+        params["de"] = email
     try:
         r = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": chunk, "langpair": "en|hi", "de": email},
+            params=params,
             timeout=6,
         )
         if r.status_code == 200:
@@ -112,9 +117,11 @@ def translate_chunk(chunk, email="rupesh907.rg@gmail.com"):
     return chunk
 
 
-def translate_en_to_hi(text, email="rupesh907.rg@gmail.com"):
+def translate_en_to_hi(text, email=None):
     if not text or not text.strip():
         return ""
+    if email is None:
+        email = os.getenv("TRANSLATOR_EMAIL", "").strip()
     text = text.strip()
     sentences = re.split(r"(?<=[.!?])\s+", text)
     chunks = []
