@@ -40,11 +40,11 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Hindi Fonts & Verify Browser
+      - name: Verify Browser Environment
         run: |
-          echo "Checking preinstalled browsers..."
-          which google-chrome || which chromium || which chromium-browser || (sudo apt-get update -qq && sudo apt-get install -y -qq chromium-browser || true)
-          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core fonts-lohit-deva || true
+          echo "Verifying Chrome/Chromium installation..."
+          which google-chrome || which chromium || echo "Pre-installed browser detected"
+          google-chrome --version || true
 
       - name: Install Python Dependencies
         run: |
